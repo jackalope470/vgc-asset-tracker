@@ -1,0 +1,15 @@
+{
+  "name": "VGC Asset Tracker",
+  "short_name": "VGC Assets",
+  "description": "VantageGeo asset inventory and field tracking",
+  "start_url": "/vgc-asset-tracker/index.html",
+  "scope": "/vgc-asset-tracker/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#D6E4F0",
+  "theme_color": "#1A5DB5",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#0D1B2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VGC Field">
+<link rel="manifest" href="manifest.json">
+<title>VGC Asset Tracker — Field</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@400;500;600&display=swap');
+:root{
+  --bg:#0D1B2A;--panel:#152236;--border:#1E3450;
+  --text:#E8F0F8;--muted:#6B8BAE;
+  --blue:#2E7FE8;--blue-light:#5AA3FF;
+  --green:#2ECC71;--red:#E74C3C;--orange:#F39C12;
+  --shadow:0 2px 12px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+.header{background:var(--panel);border-bottom:3px solid var(--blue);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.wordmark{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:800;color:var(--text);}
+.field-badge{background:var(--green);color:#0D1B2A;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;padding:4px 10px;border-radius:3px;text-transform:uppercase;}
+
+.screen{display:none;padding:16px;max-width:600px;margin:0 auto;}
+.screen.active{display:block;}
+
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid var(--border);display:flex;z-index:100;}
+.nav-btn{flex:1;padding:10px 6px;background:none;border:none;color:var(--muted);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .15s;border-top:3px solid transparent;}
+.nav-btn.active{color:var(--blue);border-top-color:var(--blue);}
+.nav-icon{font-size:18px;line-height:1;}
+.pb-nav{padding-bottom:70px;}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;color:var(--text);}
+.slabel{font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:8px;margin-top:4px;}
+
+label{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+input,select{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:6px;color:var(--text);font-family:'Open Sans',sans-serif;font-size:16px;padding:10px 13px;margin-bottom:12px;outline:none;transition:border-color .2s;-webkit-appearance:none;}
+input:focus,select:focus{border-color:var(--blue);}
+select option{background:var(--panel);}
+
+.btn{display:block;width:100%;padding:13px;border:none;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .15s;margin-bottom:10px;}
+.btn-primary{background:var(--blue);color:white;}
+.btn-success{background:var(--green);color:#0D1B2A;}
+.btn-secondary{background:transparent;color:var(--text);border:1.5px solid var(--border);}
+.btn-sm{width:auto;display:inline-block;padding:7px 14px;font-size:11px;margin-bottom:0;}
+
+.scanner-wrap{position:relative;width:100%;max-width:300px;margin:0 auto 12px;border-radius:10px;overflow:hidden;border:3px solid var(--blue);}
+#scan-vid{width:100%;display:block;}
+.scanner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.scan-frame{width:160px;height:160px;border:2.5px solid var(--blue);border-radius:6px;box-shadow:0 0 0 9999px rgba(13,27,42,.6);}
+.scan-line{position:absolute;left:calc(50% - 80px);width:160px;height:2px;background:var(--green);animation:scanline 2s linear infinite;}
+@keyframes scanline{0%{top:calc(50% - 80px);}100%{top:calc(50% + 80px);}}
+.scan-status{text-align:center;font-size:12px;color:var(--muted);margin-bottom:10px;min-height:16px;font-weight:500;}
+
+.asset-row{display:flex;align-items:center;padding:11px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;margin-bottom:7px;gap:10px;}
+.asset-info{flex:1;min-width:0;}
+.asset-id{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--blue-light);}
+.asset-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.asset-meta{font-size:11px;color:var(--muted);margin-top:1px;}
+.asset-status{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+.s-in{background:rgba(46,204,113,.15);color:var(--green);border:1px solid var(--green);}
+.s-out{background:rgba(231,76,60,.15);color:var(--red);border:1px solid var(--red);}
+.s-project{background:rgba(46,127,232,.15);color:var(--blue-light);border:1px solid var(--blue-light);}
+
+.project-bar{background:var(--blue);color:white;border-radius:8px;padding:12px 16px;margin-bottom:14px;}
+.project-bar-title{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;}
+.project-bar-meta{font-size:11px;opacity:.8;margin-top:3px;}
+
+.count-badge{background:var(--blue);color:white;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:5px;font-family:'Montserrat',sans-serif;}
+
+.empty-state{text-align:center;padding:30px 16px;color:var(--muted);}
+.empty-icon{font-size:32px;margin-bottom:10px;}
+.empty-text{font-size:13px;}
+
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--panel);color:var(--text);border:1px solid var(--border);border-left:4px solid var(--green);padding:10px 18px;border-radius:6px;font-size:13px;font-weight:600;z-index:999;transition:all .3s;opacity:0;white-space:nowrap;max-width:90vw;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.error{border-left-color:var(--red);}
+.toast.warn{border-left-color:var(--orange);}
+
+.all-clear{text-align:center;padding:30px 20px;}
+.all-clear-icon{font-size:52px;margin-bottom:14px;}
+.all-clear-text{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--green);margin-bottom:6px;}
+.all-clear-sub{font-size:13px;color:var(--muted);}
+.missing-alert{background:rgba(231,76,60,.1);border:1.5px solid var(--red);border-radius:8px;padding:14px;margin-bottom:12px;}
+.missing-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--red);margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="wordmark">VGC Asset Tracker</div>
+  <div class="field-badge">Field</div>
+</div>
+
+<!-- PROJECT SELECT -->
+<div class="screen active" id="screen-select" style="padding-bottom:20px;">
+  <br>
+  <div class="slabel">Select Your Project</div>
+  <div class="card">
+    <label>Active Project</label>
+    <select id="proj-select">
+      <option value="">Loading projects...</option>
+    </select>
+    <div id="proj-asset-preview" style="font-size:12px;color:var(--muted);margin-bottom:12px;min-height:16px;"></div>
+    <label>Your Name</label>
+    <input type="text" id="field-user" placeholder="First Last">
+    <button class="btn btn-primary" onclick="enterProject()">Enter Project →</button>
+  </div>
+  <div class="card" style="background:rgba(46,127,232,.08);border-color:rgba(46,127,232,.2);">
+    <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+      <strong style="color:var(--blue-light);">How this works:</strong><br>
+      • Select your project to see only your equipment<br>
+      • Scan QR codes to check assets in/out daily<br>
+      • Run End of Day to flag anything missing<br>
+      • Export your daily log as CSV if needed
+    </div>
+  </div>
+</div>
+
+<!-- REFERENCE -->
+<div class="screen pb-nav" id="screen-reference">
+  <br>
+  <div class="project-bar">
+    <div class="project-bar-title" id="ref-proj-name">—</div>
+    <div class="project-bar-meta" id="ref-proj-meta">—</div>
+  </div>
+  <div class="slabel">Project Assets <span class="count-badge" id="ref-count">0</span></div>
+  <div id="ref-list"><div class="empty-state"><div class="empty-icon">🔄</div><div class="empty-text">Loading...</div></div></div>
+</div>
+
+<!-- CHECK IN/OUT -->
+<div class="screen pb-nav" id="screen-checkout">
+  <br>
+  <div class="project-bar">
+    <div class="project-bar-title" id="co-proj-name">—</div>
+    <div class="project-bar-meta" id="co-user">—</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📷 Scan QR Code</div>
+    <div class="scanner-wrap">
+      <video id="scan-vid" playsinline muted></video>
+      <div class="scanner-overlay"><div class="scan-frame"></div><div class="scan-line"></div></div>
+    </div>
+    <div class="scan-status" id="scan-status">Tap Start Camera to scan</div>
+    <button class="btn btn-primary" id="scan-btn" onclick="toggleScanner()">Start Camera</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:0;">Today's Movements <span class="count-badge" id="move-count">0</span></div>
+      <button class="btn btn-sm btn-secondary" onclick="exportDaily()">⬇ CSV</button>
+    </div>
+    <div id="move-list"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No movements yet today</div></div></div>
+  </div>
+</div>
+
+<!-- EOD -->
+<div class="screen pb-nav" id="screen-eod">
+  <br>
+  <div class="slabel">End of Day</div>
+  <div id="eod-content"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Tap "Run EOD Check" to see status</div></div></div>
+  <button class="btn btn-primary" onclick="runEOD()">Run EOD Check</button>
+  <button class="btn btn-secondary" onclick="exportDaily()">⬇ Export Daily Log</button>
+</div>
+
+<div class="bottom-nav" id="bottom-nav" style="display:none;">
+  <button class="nav-btn active" id="nav-reference" onclick="navTo('reference')"><span class="nav-icon">📋</span>Reference</button>
+  <button class="nav-btn" id="nav-checkout" onclick="navTo('checkout')"><span class="nav-icon">↕️</span>Check In/Out</button>
+  <button class="nav-btn" id="nav-eod" onclick="navTo('eod')"><span class="nav-icon">✅</span>EOD</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GITHUB_URL = 'https://raw.githubusercontent.com/jackalope470/vgc-asset-tracker/main/assets.json';
+let allData = null, currentProject = null, projectAssets = [], dailyMoves = [], fieldUser = '';
+let scanner = { active:false, stream:null, frame:null };
+const scanCanvas = document.createElement('canvas');
+const scanCtx = scanCanvas.getContext('2d');
+let lastScanned = '', lastScannedTime = 0;
+
+window.onload = async () => {
+  const saved = localStorage.getItem('vgc-field-user');
+  if (saved) document.getElementById('field-user').value = saved;
+  await loadData();
+};
+
+async function loadData() {
+  try {
+    const res = await fetch(GITHUB_URL + '?t=' + Date.now());
+    allData = await res.json();
+    buildProjectSelect();
+  } catch(e) {
+    document.getElementById('proj-select').innerHTML = '<option value="">Could not load — check connection</option>';
+    showToast('Could not connect to GitHub', 'error');
+  }
+}
+
+function buildProjectSelect() {
+  const sel = document.getElementById('proj-select');
+  const projects = (allData?.projects||[]).filter(p => p.status === 'Active');
+  if (!projects.length) {
+    sel.innerHTML = '<option value="">No active projects found</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">Select your project...</option>' +
+    projects.map(p => `<option value="${p.projectId}">${p.name}${p.number?' #'+p.number:''}</option>`).join('');
+  sel.onchange = () => {
+    const proj = projects.find(p => p.projectId === sel.value);
+    const preview = document.getElementById('proj-asset-preview');
+    if (proj) {
+      preview.textContent = `${(proj.assetIds||[]).length} assets · ${proj.client||''} · ${proj.location||''}`;
+    } else {
+      preview.textContent = '';
+    }
+  };
+}
+
+async function enterProject() {
+  const projId = document.getElementById('proj-select').value;
+  const name = document.getElementById('field-user').value.trim();
+  if (!projId) { showToast('Select a project', 'error'); return; }
+  if (!name) { showToast('Enter your name', 'error'); return; }
+  fieldUser = name;
+  localStorage.setItem('vgc-field-user', name);
+  currentProject = (allData?.projects||[]).find(p => p.projectId === projId);
+  if (!currentProject) { showToast('Project not found', 'error'); return; }
+
+  projectAssets = (allData?.assets||[])
+    .filter(a => (currentProject.assetIds||[]).includes(a.assetId))
+    .map(a => ({ ...a, fieldStatus: 'In' }));
+
+  document.getElementById('ref-proj-name').textContent = currentProject.name;
+  document.getElementById('ref-proj-meta').textContent = `${projectAssets.length} assets · ${currentProject.client||''} · Field: ${name}`;
+  document.getElementById('co-proj-name').textContent = currentProject.name;
+  document.getElementById('co-user').textContent = `Field: ${name} · ${new Date().toLocaleDateString('en-US')}`;
+  renderRefList();
+  document.getElementById('bottom-nav').style.display = 'flex';
+  navTo('reference');
+  showToast(`Loaded ${projectAssets.length} assets for ${currentProject.name}`);
+}
+
+function navTo(s) {
+  document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + s).classList.add('active');
+  const nb = document.getElementById('nav-' + s);
+  if (nb) nb.classList.add('active');
+}
+
+function renderRefList() {
+  const list = document.getElementById('ref-list');
+  document.getElementById('ref-count').textContent = projectAssets.length;
+  list.innerHTML = projectAssets.map(a => `
+    <div class="asset-row">
+      <div class="asset-info">
+        <div class="asset-id">${a.assetId}</div>
+        <div class="asset-name">${[a.assetType,a.make,a.model].filter(Boolean).join(' ')}</div>
+        <div class="asset-meta">${a.categoryCode}${a.vin?' · '+a.vin:''}</div>
+      </div>
+      <span class="asset-status ${a.fieldStatus==='Out'?'s-out':'s-in'}">${a.fieldStatus==='Out'?'Out':'In'}</span>
+    </div>`).join('');
+}
+
+// SCANNER
+async function toggleScanner() {
+  scanner.active ? stopScanner() : await startScanner();
+}
+async function startScanner() {
+  const status = document.getElementById('scan-status');
+  status.textContent = 'Starting camera...';
+  try {
+    scanner.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }));
+    const v = document.getElementById('scan-vid');
+    v.srcObject = scanner.stream; await v.play();
+    scanner.active = true;
+    document.getElementById('scan-btn').textContent = 'Stop Camera';
+    status.textContent = 'Point camera at asset QR code...';
+    scanLoop();
+  } catch(e) {
+    status.textContent = 'Camera unavailable — use manual log below';
+    showToast('Camera unavailable', 'error');
+  }
+}
+function stopScanner() {
+  if (scanner.stream) scanner.stream.getTracks().forEach(t => t.stop());
+  if (scanner.frame) cancelAnimationFrame(scanner.frame);
+  scanner = { active:false, stream:null, frame:null };
+  document.getElementById('scan-btn').textContent = 'Start Camera';
+  document.getElementById('scan-status').textContent = 'Camera stopped';
+  document.getElementById('scan-vid').srcObject = null;
+}
+function scanLoop() {
+  const v = document.getElementById('scan-vid');
+  if (!scanner.active || v.readyState !== v.HAVE_ENOUGH_DATA) {
+    scanner.frame = requestAnimationFrame(scanLoop); return;
+  }
+  scanCanvas.width = v.videoWidth; scanCanvas.height = v.videoHeight;
+  scanCtx.drawImage(v, 0, 0);
+  const img = scanCtx.getImageData(0,0,scanCanvas.width,scanCanvas.height);
+  let code = jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+  if (!code) code = jsQR(img.data,img.width,img.height,{inversionAttempts:'onlyInvert'});
+  if (code?.data) {
+    const now = Date.now();
+    if (code.data !== lastScanned || now - lastScannedTime > 3000) {
+      lastScanned = code.data; lastScannedTime = now;
+      handleScan(code.data);
+    }
+  }
+  scanner.frame = requestAnimationFrame(scanLoop);
+}
+function handleScan(data) {
+  const assetId = data.split('|')[0].trim();
+  const asset = projectAssets.find(a => a.assetId === assetId);
+  const status = document.getElementById('scan-status');
+  if (!asset) {
+    status.textContent = `⚠ ${assetId} not on this project`;
+    showToast(`${assetId} not on this project`, 'error'); return;
+  }
+  logMove(asset);
+}
+function logMove(asset) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const action = asset.fieldStatus === 'In' ? 'OUT' : 'IN';
+  asset.fieldStatus = action === 'OUT' ? 'Out' : 'In';
+  dailyMoves.push({ assetId:asset.assetId, assetName:[asset.assetType,asset.make,asset.model].filter(Boolean).join(' '), action, time, user:fieldUser, ts:now.toISOString() });
+  document.getElementById('scan-status').textContent = `✓ ${asset.assetId} — ${action} at ${time}`;
+  showToast(`${asset.assetId} ${action} at ${time}`);
+  renderMoves();
+  renderRefList();
+}
+function renderMoves() {
+  const list = document.getElementById('move-list');
+  document.getElementById('move-count').textContent = dailyMoves.length;
+  if (!dailyMoves.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No movements yet today</div></div>'; return; }
+  list.innerHTML = [...dailyMoves].reverse().map(m => `
+    <div class="asset-row">
+      <div class="asset-info">
+        <div class="asset-id">${m.assetId}</div>
+        <div class="asset-name">${m.assetName}</div>
+        <div class="asset-meta">${m.user} · ${m.time}</div>
+      </div>
+      <span class="asset-status ${m.action==='OUT'?'s-out':'s-in'}">${m.action}</span>
+    </div>`).join('');
+}
+
+function runEOD() {
+  const out = projectAssets.filter(a => a.fieldStatus === 'Out');
+  const inn = projectAssets.filter(a => a.fieldStatus === 'In');
+  const content = document.getElementById('eod-content');
+  if (!out.length) {
+    content.innerHTML = `<div class="all-clear"><div class="all-clear-icon">✅</div><div class="all-clear-text">All Clear</div><div class="all-clear-sub">All ${inn.length} assets accounted for</div></div>`;
+  } else {
+    content.innerHTML = `
+      <div class="missing-alert">
+        <div class="missing-title">⚠ ${out.length} Asset${out.length>1?'s':''} Still Out</div>
+        ${out.map(a => `
+          <div class="asset-row" style="background:rgba(231,76,60,.05);margin-bottom:7px;">
+            <div class="asset-info">
+              <div class="asset-id">${a.assetId}</div>
+              <div class="asset-name">${[a.assetType,a.make,a.model].filter(Boolean).join(' ')}</div>
+            </div>
+            <button onclick="forceCheckIn('${a.assetId}')" class="btn btn-sm btn-success" style="font-size:10px;padding:5px 10px;">Check In</button>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;">${inn.length} of ${projectAssets.length} assets checked in</div>`;
+  }
+}
+function forceCheckIn(assetId) {
+  const asset = projectAssets.find(a => a.assetId === assetId);
+  if (asset) logMove(asset);
+  runEOD();
+}
+
+function exportDaily() {
+  if (!dailyMoves.length) { showToast('No movements to export', 'warn'); return; }
+  const today = new Date().toLocaleDateString('en-US');
+  const headers = ['Asset_ID','Asset_Name','Action','Time','User','Date','Project'];
+  const rows = dailyMoves.map(m => [m.assetId, m.assetName, m.action, m.time, m.user, today, currentProject?.name||'']);
+  const esc = v => { const s = String(v??''); return (s.includes(',')||s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const blob = new Blob([[headers,...rows].map(r=>r.map(esc).join(',')).join('\r\n')],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`Field_Log_${currentProject?.name||'Project'}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+  showToast('Daily log exported');
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type==='error'?'error':type==='warn'?'warn':''} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

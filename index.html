@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#1A5DB5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VGC Assets">
+<link rel="manifest" href="manifest.json">
+<title>VGC Asset Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@400;500;600&display=swap');
+:root{--bg:#D6E4F0;--white:#FFF;--border:#B8CDE0;--text:#0D1B2A;--muted:#5A7A96;--blue:#1A5DB5;--green:#2E9E3A;--red:#D42B2B;--shadow:0 2px 12px rgba(13,27,42,.10);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+.header{background:var(--white);border-bottom:3px solid var(--blue);padding:16px 24px;box-shadow:var(--shadow);}
+.wordmark{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:var(--text);}
+.sub{font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:2px;}
+.body{padding:20px;max-width:520px;margin:0 auto;width:100%;flex:1;}
+.welcome{background:var(--blue);color:white;border-radius:12px;padding:22px;margin:14px 0 20px;box-shadow:var(--shadow);}
+.welcome-title{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;margin-bottom:5px;}
+.welcome-sub{font-size:13px;opacity:.85;line-height:1.5;}
+.slabel{font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--blue);margin-bottom:10px;}
+.app-card{background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px;text-decoration:none;display:block;color:var(--text);box-shadow:var(--shadow);}
+.app-card:active{border-color:var(--blue);}
+.app-card-header{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.app-card-icon{font-size:30px;}
+.app-card-title{font-family:'Montserrat',sans-serif;font-size:16px;font-weight:800;}
+.access{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:10px;font-family:'Montserrat',sans-serif;margin-left:6px;}
+.access-admin{background:rgba(212,43,43,.1);color:var(--red);border:1px solid var(--red);}
+.access-field{background:rgba(46,158,58,.1);color:var(--green);border:1px solid var(--green);}
+.app-card-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+.install-banner{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;display:none;}
+.install-banner.show{display:block;}
+.install-title{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;margin-bottom:5px;color:var(--blue);}
+.install-desc{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.btn-install{display:block;width:100%;padding:12px;border:none;border-radius:6px;background:var(--blue);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;}
+.ios-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.5;}
+.footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="wordmark">VantageGeo</div>
+  <div class="sub">Asset Tracker</div>
+</div>
+<div class="body">
+  <div class="welcome">
+    <div class="welcome-title">VGC Asset Tracker</div>
+    <div class="welcome-sub">Inventory management, project dispatch, QR labels, and field asset tracking.</div>
+  </div>
+
+  <div class="install-banner" id="install-banner">
+    <div class="install-title">📲 Install as App</div>
+    <div class="install-desc">Add to home screen for offline access and camera scanning.</div>
+    <button class="btn-install" id="install-btn">Install App</button>
+    <div class="ios-hint" id="ios-hint" style="display:none;">Safari: tap <b>Share</b> → <b>Add to Home Screen</b></div>
+  </div>
+
+  <div class="slabel">Select Access Level</div>
+
+  <a class="app-card" href="admin.html">
+    <div class="app-card-header">
+      <div class="app-card-icon">🗂️</div>
+      <div>
+        <div class="app-card-title">Admin / Coordinator <span class="access access-admin">Admin</span></div>
+      </div>
+    </div>
+    <div class="app-card-desc">Full inventory, project dispatch, QR label printing, CSV and JSON export. Use this to send equipment to a project.</div>
+  </a>
+
+  <a class="app-card" href="field.html">
+    <div class="app-card-header">
+      <div class="app-card-icon">🏗️</div>
+      <div>
+        <div class="app-card-title">Field User <span class="access access-field">Field</span></div>
+      </div>
+    </div>
+    <div class="app-card-desc">Project reference, daily asset check in/out, end of day reconciliation. Only shows equipment on your project.</div>
+  </a>
+</div>
+<div class="footer">VantageGeo Asset Tracker</div>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+let deferredPrompt = null;
+const banner = document.getElementById('install-banner');
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; banner.classList.add('show'); });
+document.getElementById('install-btn').addEventListener('click', async () => { if (deferredPrompt) { deferredPrompt.prompt(); const {outcome} = await deferredPrompt.userChoice; deferredPrompt = null; if (outcome === 'accepted') banner.classList.remove('show'); }});
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+if (isIOS && !isStandalone) { banner.classList.add('show'); document.getElementById('install-btn').style.display='none'; document.getElementById('ios-hint').style.display='block'; }
+if (isStandalone) banner.classList.remove('show');
+</script>
+</body>
+</html>

@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#1A5DB5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VGC Admin">
+<link rel="manifest" href="manifest.json">
+<title>VGC Asset Tracker — Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@400;500;600&display=swap');
+:root{
+  --bg:#D6E4F0;--white:#FFF;--border:#B8CDE0;
+  --text:#0D1B2A;--muted:#5A7A96;
+  --blue:#1A5DB5;--blue-dark:#134A94;
+  --green:#2E9E3A;--red:#D42B2B;--orange:#E07B00;
+  --shadow:0 2px 12px rgba(13,27,42,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+.header{background:var(--white);border-bottom:3px solid var(--blue);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.wordmark{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:800;color:var(--text);}
+.admin-badge{background:var(--red);color:white;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;padding:4px 10px;border-radius:3px;text-transform:uppercase;}
+
+.tab-bar{background:var(--white);border-bottom:2px solid var(--border);display:flex;position:sticky;top:57px;z-index:99;overflow-x:auto;}
+.tab{flex:1;min-width:70px;padding:11px 6px;background:none;border:none;color:var(--muted);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+
+.screen{display:none;padding:16px;max-width:680px;margin:0 auto;}
+.screen.active{display:block;}
+
+.card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;}
+.slabel{font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:8px;margin-top:4px;}
+
+label{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+input,select,textarea{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:6px;color:var(--text);font-family:'Open Sans',sans-serif;font-size:16px;padding:10px 13px;margin-bottom:12px;outline:none;transition:border-color .2s;-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);background:white;}
+select option{background:white;}
+textarea{resize:vertical;min-height:70px;font-size:14px;}
+
+.btn{display:block;width:100%;padding:13px;border:none;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .15s;margin-bottom:10px;}
+.btn-primary{background:var(--blue);color:white;box-shadow:0 2px 8px rgba(26,93,181,.2);}
+.btn-primary:active{background:var(--blue-dark);}
+.btn-success{background:var(--green);color:white;}
+.btn-danger{background:var(--red);color:white;}
+.btn-secondary{background:transparent;color:var(--text);border:1.5px solid var(--border);}
+.btn-sm{width:auto;display:inline-block;padding:7px 14px;font-size:11px;margin-bottom:0;}
+.btn-row{display:flex;gap:8px;margin-bottom:10px;}
+.btn-row .btn{margin-bottom:0;}
+
+/* SCANNER */
+.scanner-wrap{position:relative;width:100%;max-width:300px;margin:0 auto 12px;border-radius:10px;overflow:hidden;border:3px solid var(--blue);}
+.scan-video{width:100%;display:block;}
+.scanner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.scan-frame{width:160px;height:160px;border:2.5px solid var(--blue);border-radius:6px;box-shadow:0 0 0 9999px rgba(214,228,240,.5);}
+.scan-line{position:absolute;left:calc(50% - 80px);width:160px;height:2px;background:var(--red);animation:scanline 2s linear infinite;}
+@keyframes scanline{0%{top:calc(50% - 80px);}100%{top:calc(50% + 80px);}}
+.scan-status{text-align:center;font-size:12px;color:var(--muted);margin-bottom:10px;min-height:16px;font-weight:500;}
+
+/* ASSET ROWS */
+.asset-row{display:flex;align-items:center;padding:11px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;margin-bottom:7px;gap:10px;transition:border-color .15s;}
+.asset-row.selected{border-color:var(--blue);background:rgba(26,93,181,.05);}
+.asset-check{width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.asset-check.checked{background:var(--blue);border-color:var(--blue);color:white;font-size:12px;font-weight:700;}
+.asset-info{flex:1;min-width:0;}
+.asset-id{font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:var(--blue);}
+.asset-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.asset-meta{font-size:11px;color:var(--muted);margin-top:1px;}
+.asset-status{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+.s-available{background:rgba(46,158,58,.12);color:var(--green);border:1px solid var(--green);}
+.s-onproject{background:rgba(26,93,181,.12);color:var(--blue);border:1px solid var(--blue);}
+.s-inshop{background:rgba(224,123,0,.12);color:var(--orange);border:1px solid var(--orange);}
+
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:12px 8px;text-align:center;box-shadow:var(--shadow);}
+.stat-num{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:var(--blue);}
+.stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+
+/* FILTER */
+.filter-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;}
+.filter-btn{padding:5px 12px;border:1.5px solid var(--border);border-radius:16px;background:var(--white);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;cursor:pointer;color:var(--muted);white-space:nowrap;transition:all .15s;}
+.filter-btn.active{background:var(--blue);border-color:var(--blue);color:white;}
+
+.count-badge{background:var(--blue);color:white;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:5px;font-family:'Montserrat',sans-serif;}
+
+.empty-state{text-align:center;padding:32px 16px;color:var(--muted);}
+.empty-icon{font-size:32px;margin-bottom:10px;}
+.empty-text{font-size:13px;}
+
+.divider{border:none;border-top:1.5px solid var(--border);margin:14px 0;}
+
+/* INSTRUCTIONS BOX */
+.instructions{background:rgba(26,93,181,.06);border:1.5px solid rgba(26,93,181,.2);border-radius:8px;padding:14px;margin-bottom:14px;}
+.instructions p{font-size:13px;line-height:1.6;color:var(--text);}
+.instructions strong{color:var(--blue);}
+
+/* PROJECT CARDS */
+.project-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow);}
+.project-name{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;}
+.project-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+.project-assets{font-size:12px;margin-top:8px;color:var(--blue);font-weight:600;}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--text);color:white;border-left:4px solid var(--green);padding:10px 18px;border-radius:6px;font-size:13px;font-weight:600;z-index:999;transition:all .3s;opacity:0;white-space:nowrap;max-width:90vw;box-shadow:var(--shadow);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.error{border-left-color:var(--red);}
+.toast.warn{border-left-color:var(--orange);}
+
+/* ── PRINT LABELS ── */
+@media print {
+  body *{visibility:hidden;}
+  .label-print-area, .label-print-area *{visibility:visible;}
+  .label-print-area{position:fixed;top:0;left:0;width:100%;height:100%;}
+  .no-print{display:none !important;}
+
+  .label-sheet{
+    display:grid;
+    grid-template-columns:repeat(3,63.5mm);
+    grid-template-rows:repeat(10,25.4mm);
+    gap:0;
+    padding:12.7mm 4.76mm;
+    width:215.9mm;
+  }
+  .label{
+    width:63.5mm;height:25.4mm;
+    display:flex;align-items:center;
+    padding:1.5mm 2mm;
+    gap:2mm;
+    border:0.2mm solid #ccc;
+    overflow:hidden;
+  }
+  .label-qr{width:20mm;height:20mm;flex-shrink:0;}
+  .label-qr canvas,.label-qr img{width:20mm !important;height:20mm !important;}
+  .label-text{flex:1;overflow:hidden;}
+  .label-id{font-family:'Montserrat',sans-serif;font-size:7pt;font-weight:800;color:#1A5DB5;}
+  .label-name{font-size:6.5pt;font-weight:600;color:#0D1B2A;line-height:1.2;margin-top:0.5mm;}
+  .label-meta{font-size:5.5pt;color:#5A7A96;margin-top:0.5mm;}
+  .label-brand{font-size:5pt;color:#B8CDE0;margin-top:1mm;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.5px;}
+}
+@media screen{.label-print-area{display:none;}}
+
+.pb{padding-bottom:20px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="wordmark">VGC Asset Tracker</div>
+  <div class="admin-badge">Admin</div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab active" id="tab-btn-inventory" onclick="switchTab('inventory')">Inventory</button>
+  <button class="tab" id="tab-btn-dispatch" onclick="switchTab('dispatch')">Dispatch</button>
+  <button class="tab" id="tab-btn-projects" onclick="switchTab('projects')">Projects</button>
+  <button class="tab" id="tab-btn-labels" onclick="switchTab('labels')">QR Labels</button>
+  <button class="tab" id="tab-btn-export" onclick="switchTab('export')">Export</button>
+</div>
+
+<!-- INVENTORY -->
+<div class="screen active pb" id="screen-inventory">
+  <br>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-avail" style="color:var(--green)">—</div><div class="stat-label">Available</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-proj" style="color:var(--blue)">—</div><div class="stat-label">On Job</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-shop" style="color:var(--orange)">—</div><div class="stat-label">In Shop</div></div>
+  </div>
+
+  <div class="filter-bar" id="cat-filters">
+    <button class="filter-btn active" onclick="filterCat('ALL',this)">All</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:0;">Assets <span class="count-badge" id="inv-count">0</span></div>
+      <button class="btn btn-sm btn-secondary" onclick="loadData()">↻ Refresh</button>
+    </div>
+    <input type="text" id="search" placeholder="Search ID, type, make, VIN..." oninput="renderInventory()" style="margin-bottom:10px;">
+    <div id="inv-list"><div class="empty-state"><div class="empty-icon">🔄</div><div class="empty-text">Loading...</div></div></div>
+  </div>
+</div>
+
+<!-- DISPATCH -->
+<div class="screen pb" id="screen-dispatch">
+  <br>
+  <div class="instructions">
+    <p><strong>How to dispatch:</strong> Select or scan assets → fill in project details → tap Dispatch. The app generates a Project JSON and a CSV. Upload the JSON to GitHub, import the CSV to Excel.</p>
+  </div>
+
+  <div class="slabel">Project Details</div>
+  <div class="card">
+    <label>Project Name</label>
+    <input type="text" id="proj-name" placeholder="e.g. Kearny NW 3D">
+    <label>Client</label>
+    <input type="text" id="proj-client" placeholder="e.g. Mull Drilling">
+    <label>Project #</label>
+    <input type="text" id="proj-num" placeholder="e.g. 2601">
+    <label>Location</label>
+    <input type="text" id="proj-location" placeholder="e.g. Kearny County, KS">
+    <label>Coordinator</label>
+    <input type="text" id="proj-coordinator" placeholder="Your name">
+    <label>Dispatch Date</label>
+    <input type="date" id="proj-date">
+  </div>
+
+  <div class="slabel">Scan Assets</div>
+  <div class="card">
+    <div class="scanner-wrap">
+      <video class="scan-video" id="dispatch-vid" playsinline muted></video>
+      <div class="scanner-overlay"><div class="scan-frame"></div><div class="scan-line"></div></div>
+    </div>
+    <div class="scan-status" id="dispatch-scan-status">Tap Start Camera to scan asset QR codes</div>
+    <button class="btn btn-primary" id="dispatch-cam-btn" onclick="toggleCam('dispatch')">Start Camera</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:0;">Selected <span class="count-badge" id="dispatch-count">0</span></div>
+      <button class="btn btn-sm btn-secondary" onclick="clearSelected()">Clear</button>
+    </div>
+    <div id="dispatch-list"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No assets selected yet — scan or pick from inventory</div></div></div>
+  </div>
+
+  <div class="slabel">Also select from inventory</div>
+  <div class="card">
+    <div class="filter-bar" id="dispatch-cat-filters">
+      <button class="filter-btn active" onclick="filterDispatchCat('ALL',this)">All</button>
+    </div>
+    <div id="dispatch-pick-list"></div>
+  </div>
+
+  <button class="btn btn-success" onclick="dispatchAssets()">🚛 Dispatch to Project & Generate Files</button>
+</div>
+
+<!-- PROJECTS -->
+<div class="screen pb" id="screen-projects">
+  <br>
+  <div class="instructions">
+    <p><strong>Active projects</strong> are stored in the JSON file on GitHub. When a project closes, return assets here and re-export the JSON.</p>
+  </div>
+  <div id="project-list"><div class="empty-state"><div class="empty-icon">🔄</div><div class="empty-text">Loading...</div></div></div>
+</div>
+
+<!-- QR LABELS -->
+<div class="screen pb" id="screen-labels">
+  <br>
+  <div class="instructions">
+    <p><strong>Print QR labels</strong> for any assets. Select which assets to print, then tap Print. Labels are sized for <strong>Avery 5160</strong> (1" × 2⅝", 30 per sheet). Use standard laser or inkjet printer.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Select Assets to Print</div>
+    <div class="filter-bar" id="label-cat-filters">
+      <button class="filter-btn active" onclick="filterLabelCat('ALL',this)">All</button>
+    </div>
+    <input type="text" id="label-search" placeholder="Search assets..." oninput="renderLabelPicker()" style="margin-bottom:10px;">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="btn btn-sm btn-secondary" onclick="selectAllLabels()">Select All</button>
+      <button class="btn btn-sm btn-secondary" onclick="clearAllLabels()">Clear All</button>
+    </div>
+    <div id="label-pick-list"></div>
+  </div>
+
+  <button class="btn btn-primary" onclick="printLabels()">🖨 Print Labels (<span id="label-count">0</span> selected)</button>
+</div>
+
+<!-- EXPORT -->
+<div class="screen pb" id="screen-export">
+  <br>
+  <div class="instructions">
+    <p><strong>Export options:</strong> Download the current inventory as CSV for Excel import, or download the full assets.json to upload to GitHub.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Inventory CSV</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Full inventory export. Import to Excel to update the master file.</p>
+    <button class="btn btn-primary" onclick="exportInventoryCSV()">⬇ Download Inventory CSV</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📄 Assets JSON</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Download the current assets.json. Upload this to GitHub to update what field users see.</p>
+    <button class="btn btn-primary" onclick="exportJSON()">⬇ Download assets.json</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 How to Update GitHub</div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.7;">
+      1. Download assets.json above<br>
+      2. Go to your GitHub repo<br>
+      3. Click assets.json → pencil icon → drag new file<br>
+      4. Click Commit changes<br>
+      5. Field app refreshes automatically
+    </p>
+  </div>
+</div>
+
+<!-- LABEL PRINT AREA (hidden on screen, shown on print) -->
+<div class="label-print-area" id="label-print-area"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────
+const GITHUB_ASSETS_URL = 'https://raw.githubusercontent.com/jackalope470/vgc-asset-tracker/main/assets.json';
+let allAssets = [], filteredInv = [], selectedForDispatch = new Set();
+let selectedForLabels = new Set(), labelCatFilter = 'ALL', dispatchCatFilter = 'ALL';
+let invCatFilter = 'ALL';
+let cams = {};
+let scanCanvases = {};
+
+// ─── LOAD DATA ────────────────────────────────────────────────
+async function loadData() {
+  showToast('Loading inventory...');
+  try {
+    const res = await fetch(GITHUB_ASSETS_URL + '?t=' + Date.now());
+    const data = await res.json();
+    allAssets = data.assets || [];
+    filteredInv = [...allAssets];
+    buildCatFilters();
+    updateStats();
+    renderInventory();
+    renderProjects(data.projects || []);
+    renderLabelPicker();
+    renderDispatchPicker();
+    showToast(`Loaded ${allAssets.length} assets`);
+  } catch(e) {
+    // Fallback to embedded data if GitHub not reachable
+    showToast('Could not load from GitHub — using local data', 'warn');
+  }
+}
+
+window.onload = () => {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('proj-date').value = today;
+  loadData();
+};
+
+// ─── TABS ─────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('tab-btn-' + name).classList.add('active');
+}
+
+// ─── STATS ────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-total').textContent = allAssets.length;
+  document.getElementById('stat-avail').textContent = allAssets.filter(a => a.status === 'Available').length;
+  document.getElementById('stat-proj').textContent = allAssets.filter(a => a.status === 'On Project').length;
+  document.getElementById('stat-shop').textContent = allAssets.filter(a => a.status === 'In Shop').length;
+}
+
+// ─── CATEGORY FILTERS ─────────────────────────────────────────
+function buildCatFilters() {
+  const codes = [...new Set(allAssets.map(a => a.categoryCode))].sort();
+  ['cat-filters','dispatch-cat-filters','label-cat-filters'].forEach(id => {
+    const bar = document.getElementById(id);
+    if (!bar) return;
+    const prefix = id === 'cat-filters' ? 'Inv' : id === 'dispatch-cat-filters' ? 'Dispatch' : 'Label';
+    bar.innerHTML = `<button class="filter-btn active" onclick="filter${prefix}Cat('ALL',this)">All</button>`;
+    codes.forEach(c => {
+      bar.innerHTML += `<button class="filter-btn" onclick="filter${prefix}Cat('${c}',this)">${c}</button>`;
+    });
+  });
+}
+
+function filterCat(code, btn) {
+  invCatFilter = code;
+  document.querySelectorAll('#cat-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInventory();
+}
+function filterDispatchCat(code, btn) {
+  dispatchCatFilter = code;
+  document.querySelectorAll('#dispatch-cat-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDispatchPicker();
+}
+function filterLabelCat(code, btn) {
+  labelCatFilter = code;
+  document.querySelectorAll('#label-cat-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLabelPicker();
+}
+
+// ─── INVENTORY RENDER ─────────────────────────────────────────
+function renderInventory() {
+  const search = document.getElementById('search').value.toLowerCase();
+  filteredInv = allAssets.filter(a => {
+    const matchCat = invCatFilter === 'ALL' || a.categoryCode === invCatFilter;
+    const matchSearch = !search ||
+      a.assetId.toLowerCase().includes(search) ||
+      (a.assetType||'').toLowerCase().includes(search) ||
+      (a.make||'').toLowerCase().includes(search) ||
+      (a.model||'').toLowerCase().includes(search) ||
+      (a.vin||'').toLowerCase().includes(search);
+    return matchCat && matchSearch;
+  });
+  document.getElementById('inv-count').textContent = filteredInv.length;
+  const list = document.getElementById('inv-list');
+  if (!filteredInv.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">No assets found</div></div>'; return; }
+  list.innerHTML = filteredInv.map(a => `
+    <div class="asset-row">
+      <div class="asset-info">
+        <div class="asset-id">${a.assetId}</div>
+        <div class="asset-name">${assetLabel(a)}</div>
+        <div class="asset-meta">${[a.make,a.model,a.vin].filter(Boolean).join(' · ')}</div>
+        ${a.currentProject ? `<div class="asset-meta" style="color:var(--blue)">📍 ${a.currentProject}</div>` : ''}
+      </div>
+      <span class="asset-status ${statusCls(a.status)}">${a.status||'Available'}</span>
+    </div>`).join('');
+}
+
+// ─── DISPATCH ─────────────────────────────────────────────────
+function renderDispatchPicker() {
+  const list = document.getElementById('dispatch-pick-list');
+  const avail = allAssets.filter(a =>
+    (a.status === 'Available' || !a.status) &&
+    (dispatchCatFilter === 'ALL' || a.categoryCode === dispatchCatFilter)
+  );
+  if (!avail.length) { list.innerHTML = '<div class="empty-state"><div class="empty-text">No available assets in this category</div></div>'; return; }
+  list.innerHTML = avail.map(a => {
+    const sel = selectedForDispatch.has(a.assetId);
+    return `<div class="asset-row ${sel?'selected':''}" onclick="toggleDispatch('${a.assetId}')">
+      <div class="asset-check ${sel?'checked':''}">${sel?'✓':''}</div>
+      <div class="asset-info">
+        <div class="asset-id">${a.assetId}</div>
+        <div class="asset-name">${assetLabel(a)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDispatch(assetId) {
+  if (selectedForDispatch.has(assetId)) selectedForDispatch.delete(assetId);
+  else selectedForDispatch.add(assetId);
+  renderDispatchList();
+  renderDispatchPicker();
+}
+
+function renderDispatchList() {
+  const list = document.getElementById('dispatch-list');
+  document.getElementById('dispatch-count').textContent = selectedForDispatch.size;
+  if (!selectedForDispatch.size) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No assets selected</div></div>';
+    return;
+  }
+  const assets = allAssets.filter(a => selectedForDispatch.has(a.assetId));
+  list.innerHTML = assets.map(a => `
+    <div class="asset-row">
+      <div class="asset-info">
+        <div class="asset-id">${a.assetId}</div>
+        <div class="asset-name">${assetLabel(a)}</div>
+      </div>
+      <button onclick="toggleDispatch('${a.assetId}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:4px 8px;">✕</button>
+    </div>`).join('');
+}
+
+function clearSelected() {
+  selectedForDispatch.clear();
+  renderDispatchList();
+  renderDispatchPicker();
+}
+
+function dispatchAssets() {
+  const name = document.getElementById('proj-name').value.trim();
+  const client = document.getElementById('proj-client').value.trim();
+  const num = document.getElementById('proj-num').value.trim();
+  const location = document.getElementById('proj-location').value.trim();
+  const coordinator = document.getElementById('proj-coordinator').value.trim();
+  const date = document.getElementById('proj-date').value;
+
+  if (!name) { showToast('Enter a project name', 'error'); return; }
+  if (!selectedForDispatch.size) { showToast('Select at least one asset', 'error'); return; }
+  if (!coordinator) { showToast('Enter coordinator name', 'error'); return; }
+
+  const dispatchedAssets = allAssets.filter(a => selectedForDispatch.has(a.assetId));
+
+  // Update asset statuses in memory
+  dispatchedAssets.forEach(a => {
+    a.status = 'On Project';
+    a.currentProject = name;
+    a.assignedTo = coordinator;
+    a.lastCheckout = new Date().toISOString();
+  });
+
+  // Build project object
+  const projectId = `PROJ-${Date.now()}`;
+  const project = {
+    projectId,
+    name,
+    client,
+    number: num,
+    location,
+    coordinator,
+    dispatchDate: date,
+    status: 'Active',
+    assetIds: [...selectedForDispatch],
+  };
+
+  // Export CSV
+  const headers = ['Asset_ID','Asset_Type','Make','Model','VIN_Serial','Category','Project','Client','Project_Num','Location','Coordinator','Dispatch_Date','Status'];
+  const rows = dispatchedAssets.map(a => [
+    a.assetId, a.assetType, a.make, a.model, a.vin, a.categoryCode,
+    name, client, num, location, coordinator, date, 'On Project'
+  ]);
+  downloadCSV(`Dispatch_${name.replace(/\s+/g,'_')}_${date}.csv`, headers, rows);
+
+  // Update JSON and trigger download
+  const data = buildCurrentJSON();
+  if (!data.projects) data.projects = [];
+  data.projects.push(project);
+  downloadJSON(data, 'assets.json');
+
+  showToast(`✓ ${dispatchedAssets.length} assets dispatched — download files and update GitHub`);
+  selectedForDispatch.clear();
+  updateStats();
+  renderInventory();
+  renderDispatchList();
+  renderDispatchPicker();
+  renderProjects(data.projects);
+  switchTab('projects');
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────
+function renderProjects(projects) {
+  const list = document.getElementById('project-list');
+  const active = projects.filter(p => p.status === 'Active');
+  if (!active.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No active projects</div></div>';
+    return;
+  }
+  list.innerHTML = active.map(p => `
+    <div class="project-card">
+      <div style="display:flex;justify-content:space-between;align-items:start;">
+        <div>
+          <div class="project-name">${p.name}</div>
+          <div class="project-meta">${p.client||''} ${p.number?'· #'+p.number:''} · ${p.location||''}</div>
+          <div class="project-meta">Coordinator: ${p.coordinator||''} · Dispatched: ${p.dispatchDate||''}</div>
+        </div>
+        <span style="background:rgba(46,158,58,.12);color:var(--green);border:1px solid var(--green);font-family:'Montserrat',sans-serif;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;">Active</span>
+      </div>
+      <div class="project-assets">${(p.assetIds||[]).length} assets on this project</div>
+      <div style="margin-top:10px;">
+        <button class="btn btn-sm btn-danger" onclick="closeProject('${p.projectId}')">Close Project & Return Assets</button>
+      </div>
+    </div>`).join('');
+}
+
+function closeProject(projectId) {
+  if (!confirm('Close this project and return all assets to Available?')) return;
+  const data = buildCurrentJSON();
+  const proj = data.projects.find(p => p.projectId === projectId);
+  if (!proj) return;
+  proj.status = 'Closed';
+  proj.closeDate = new Date().toISOString().slice(0,10);
+
+  // Return assets
+  const returnedAssets = allAssets.filter(a => (proj.assetIds||[]).includes(a.assetId));
+  returnedAssets.forEach(a => {
+    a.status = 'Available';
+    a.currentProject = '';
+    a.assignedTo = '';
+  });
+
+  // Export return CSV
+  const headers = ['Asset_ID','Asset_Type','Make','Model','Category','Project','Return_Date','Status'];
+  const rows = returnedAssets.map(a => [a.assetId, a.assetType, a.make, a.model, a.categoryCode, proj.name, proj.closeDate, 'Available']);
+  downloadCSV(`Return_${proj.name.replace(/\s+/g,'_')}_${proj.closeDate}.csv`, headers, rows);
+  downloadJSON(data, 'assets.json');
+
+  showToast(`✓ ${returnedAssets.length} assets returned — update GitHub with new assets.json`);
+  updateStats();
+  renderInventory();
+  renderProjects(data.projects);
+}
+
+// ─── QR LABELS ────────────────────────────────────────────────
+function renderLabelPicker() {
+  const search = document.getElementById('label-search').value.toLowerCase();
+  const filtered = allAssets.filter(a =>
+    (labelCatFilter === 'ALL' || a.categoryCode === labelCatFilter) &&
+    (!search || a.assetId.toLowerCase().includes(search) || assetLabel(a).toLowerCase().includes(search))
+  );
+  const list = document.getElementById('label-pick-list');
+  document.getElementById('label-count').textContent = selectedForLabels.size;
+  list.innerHTML = filtered.map(a => {
+    const sel = selectedForLabels.has(a.assetId);
+    return `<div class="asset-row ${sel?'selected':''}" onclick="toggleLabel('${a.assetId}')">
+      <div class="asset-check ${sel?'checked':''}">${sel?'✓':''}</div>
+      <div class="asset-info">
+        <div class="asset-id">${a.assetId}</div>
+        <div class="asset-name">${assetLabel(a)}</div>
+        <div class="asset-meta">${[a.make,a.model].filter(Boolean).join(' ')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleLabel(assetId) {
+  if (selectedForLabels.has(assetId)) selectedForLabels.delete(assetId);
+  else selectedForLabels.add(assetId);
+  document.getElementById('label-count').textContent = selectedForLabels.size;
+  renderLabelPicker();
+}
+function selectAllLabels() {
+  allAssets.filter(a => labelCatFilter === 'ALL' || a.categoryCode === labelCatFilter)
+    .forEach(a => selectedForLabels.add(a.assetId));
+  renderLabelPicker();
+}
+function clearAllLabels() {
+  selectedForLabels.clear();
+  renderLabelPicker();
+}
+
+function printLabels() {
+  if (!selectedForLabels.size) { showToast('Select assets to print', 'error'); return; }
+  const assets = allAssets.filter(a => selectedForLabels.has(a.assetId));
+  const area = document.getElementById('label-print-area');
+
+  // Build label sheet
+  area.innerHTML = `<div class="label-sheet" id="label-sheet"></div>`;
+  const sheet = document.getElementById('label-sheet');
+
+  let rendered = 0;
+  assets.forEach((a, idx) => {
+    const label = document.createElement('div');
+    label.className = 'label';
+    const qrData = `${a.assetId}|${a.assetType||''}|${a.make||''}|${a.model||''}`;
+    label.innerHTML = `
+      <div class="label-qr" id="lqr-${idx}"></div>
+      <div class="label-text">
+        <div class="label-id">${a.assetId}</div>
+        <div class="label-name">${assetLabel(a)}</div>
+        <div class="label-meta">${[a.make,a.model].filter(Boolean).join(' ')}</div>
+        ${a.vin ? `<div class="label-meta">${a.vin}</div>` : ''}
+        <div class="label-brand">VANTAGEGEO</div>
+      </div>`;
+    sheet.appendChild(label);
+
+    new QRCode(document.getElementById(`lqr-${idx}`), {
+      text: qrData, width: 76, height: 76,
+      colorDark: '#000', colorLight: '#fff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    rendered++;
+    if (rendered === assets.length) setTimeout(() => window.print(), 600);
+  });
+}
+
+// ─── SCANNER ──────────────────────────────────────────────────
+const scanCanvas = document.createElement('canvas');
+const scanCtx = scanCanvas.getContext('2d');
+let lastScanned = '', lastScannedTime = 0;
+
+async function toggleCam(id) {
+  if (cams[id]?.active) stopCam(id); else await startCam(id);
+}
+async function startCam(id) {
+  const vid = document.getElementById(id + '-vid');
+  const status = document.getElementById(id + '-scan-status');
+  const btn = document.getElementById(id + '-cam-btn');
+  try {
+    status.textContent = 'Starting camera...';
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }));
+    vid.srcObject = stream;
+    await vid.play();
+    cams[id] = { active: true, stream };
+    btn.textContent = 'Stop Camera';
+    status.textContent = 'Point camera at asset QR code...';
+    scanLoop(id);
+  } catch(e) {
+    status.textContent = 'Camera unavailable — select assets manually below';
+  }
+}
+function stopCam(id) {
+  const cam = cams[id];
+  if (cam?.stream) cam.stream.getTracks().forEach(t => t.stop());
+  if (cam?.frame) cancelAnimationFrame(cam.frame);
+  cams[id] = { active: false };
+  const vid = document.getElementById(id + '-vid');
+  if (vid) vid.srcObject = null;
+  const btn = document.getElementById(id + '-cam-btn');
+  if (btn) btn.textContent = 'Start Camera';
+  const status = document.getElementById(id + '-scan-status');
+  if (status) status.textContent = 'Camera stopped';
+}
+function scanLoop(id) {
+  const vid = document.getElementById(id + '-vid');
+  if (!cams[id]?.active || vid.readyState !== vid.HAVE_ENOUGH_DATA) {
+    cams[id].frame = requestAnimationFrame(() => scanLoop(id)); return;
+  }
+  scanCanvas.width = vid.videoWidth; scanCanvas.height = vid.videoHeight;
+  scanCtx.drawImage(vid, 0, 0);
+  const img = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+  let code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  if (!code) code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'onlyInvert' });
+  if (code?.data) {
+    const now = Date.now();
+    if (code.data !== lastScanned || now - lastScannedTime > 3000) {
+      lastScanned = code.data; lastScannedTime = now;
+      handleScan(id, code.data);
+    }
+  }
+  cams[id].frame = requestAnimationFrame(() => scanLoop(id));
+}
+function handleScan(id, data) {
+  const assetId = data.split('|')[0].trim();
+  const asset = allAssets.find(a => a.assetId === assetId);
+  const status = document.getElementById(id + '-scan-status');
+  if (!asset) { status.textContent = `⚠ Not found: ${assetId}`; showToast(`${assetId} not in inventory`, 'error'); return; }
+  if (id === 'dispatch') {
+    if (asset.status !== 'Available' && asset.status) {
+      status.textContent = `⚠ ${assetId} is ${asset.status}`;
+      showToast(`${assetId} is ${asset.status}`, 'warn'); return;
+    }
+    toggleDispatch(assetId);
+    status.textContent = `✓ Added: ${assetId}`;
+  }
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────
+function buildCurrentJSON() {
+  return {
+    lastUpdated: new Date().toISOString().slice(0,10),
+    updatedBy: document.getElementById('proj-coordinator')?.value || 'admin',
+    projects: [],
+    assets: allAssets
+  };
+}
+function exportInventoryCSV() {
+  const headers = ['Asset_ID','Category','Asset_Type','Make','Model','VIN_Serial','Unit_Number','Location','Status','Current_Project','Assigned_To'];
+  const rows = allAssets.map(a => [a.assetId, a.categoryCode, a.assetType, a.make, a.model, a.vin, a.unitNumber, a.location, a.status||'Available', a.currentProject, a.assignedTo]);
+  downloadCSV(`VGC_Inventory_${new Date().toISOString().slice(0,10)}.csv`, headers, rows);
+  showToast('Inventory CSV downloaded');
+}
+function exportJSON() {
+  downloadJSON(buildCurrentJSON(), 'assets.json');
+  showToast('assets.json downloaded — upload to GitHub');
+}
+
+// ─── UTILS ────────────────────────────────────────────────────
+function assetLabel(a) {
+  return [a.assetType, a.make, a.model].filter(Boolean).join(' ') || a.assetId;
+}
+function statusCls(s) {
+  const m = {'Available':'s-available','On Project':'s-onproject','In Shop':'s-inshop','In Field':'s-onproject'};
+  return m[s] || 's-available';
+}
+function downloadCSV(filename, headers, rows) {
+  const esc = v => { const s = String(v??''); return (s.includes(',')||s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const blob = new Blob([[headers,...rows].map(r => r.map(esc).join(',')).join('\r\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+}
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type==='error'?'error':type==='warn'?'warn':''} show`;
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>
