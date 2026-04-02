@@ -658,19 +658,24 @@ function printLabels() {
 }
 
 // ─── SCANNER ──────────────────────────────────────────────────
-const scanCanvas = document.createElement('canvas');
-const scanCtx = scanCanvas.getContext('2d');
+const _scanCanvas = document.createElement('canvas');
+const _scanCtx = _scanCanvas.getContext('2d');
 let lastScanned = '', lastScannedTime = 0;
 
 async function toggleCam(id) {
   if (cams[id]?.active) stopCam(id); else await startCam(id);
 }
+
 async function startCam(id) {
   const vid = document.getElementById(id + '-vid');
   const status = document.getElementById(id + '-scan-status');
   const btn = document.getElementById(id + '-cam-btn');
+  status.textContent = 'Starting camera...';
+
+  // Stop any existing stream first
+  stopCam(id);
+
   try {
-    status.textContent = 'Starting camera...';
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -681,46 +686,71 @@ async function startCam(id) {
     }
     vid.srcObject = stream;
     await vid.play();
-    cams[id] = { active: true, stream };
+    cams[id] = { active: true, stream, frame: null };
     btn.textContent = 'Stop Camera';
-    status.textContent = 'Scanning — hold QR code steady in the frame';
-    scanLoop(id);
+    status.textContent = 'Ready — point at QR code';
+    adminScanLoop(id);
   } catch(e) {
-    status.textContent = 'Camera unavailable — select assets manually below';
+    cams[id] = { active: false };
+    status.textContent = 'Camera error: ' + (e.message || 'Permission denied');
+    btn.textContent = 'Start Camera';
   }
 }
+
 function stopCam(id) {
   const cam = cams[id];
-  if (cam?.stream) cam.stream.getTracks().forEach(t => t.stop());
   if (cam?.frame) cancelAnimationFrame(cam.frame);
-  cams[id] = { active: false };
+  if (cam?.stream) cam.stream.getTracks().forEach(t => t.stop());
+  cams[id] = { active: false, stream: null, frame: null };
   const vid = document.getElementById(id + '-vid');
   if (vid) vid.srcObject = null;
   const btn = document.getElementById(id + '-cam-btn');
   if (btn) btn.textContent = 'Start Camera';
-  const status = document.getElementById(id + '-scan-status');
-  if (status) status.textContent = 'Camera stopped';
 }
-function scanLoop(id) {
+
+let _adminFrameCount = 0;
+function adminScanLoop(id) {
+  if (!cams[id]?.active) return;
+
   const vid = document.getElementById(id + '-vid');
-  if (!cams[id]?.active || vid.readyState !== vid.HAVE_ENOUGH_DATA) {
-    cams[id].frame = requestAnimationFrame(() => scanLoop(id)); return;
+  const status = document.getElementById(id + '-scan-status');
+
+  if (!vid || vid.readyState < 2 || vid.videoWidth === 0) {
+    cams[id].frame = requestAnimationFrame(() => adminScanLoop(id));
+    return;
   }
+
+  if (typeof jsQR === 'undefined') {
+    status.textContent = 'Error: QR library not loaded';
+    return;
+  }
+
+  _adminFrameCount++;
   const sw = Math.min(vid.videoWidth, 640);
   const sh = Math.min(vid.videoHeight, 480);
-  scanCanvas.width = sw; scanCanvas.height = sh;
-  scanCtx.drawImage(vid, 0, 0, sw, sh);
-  const img = scanCtx.getImageData(0, 0, sw, sh);
-  let code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-  if (!code) code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'onlyInvert' });
-  if (code?.data) {
-    const now = Date.now();
-    if (code.data !== lastScanned || now - lastScannedTime > 3000) {
-      lastScanned = code.data; lastScannedTime = now;
-      handleScan(id, code.data);
+  _scanCanvas.width = sw;
+  _scanCanvas.height = sh;
+  _scanCtx.drawImage(vid, 0, 0, sw, sh);
+
+  try {
+    const img = _scanCtx.getImageData(0, 0, sw, sh);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+    if (code && code.data) {
+      const now = Date.now();
+      if (code.data !== lastScanned || now - lastScannedTime > 3000) {
+        lastScanned = code.data;
+        lastScannedTime = now;
+        status.textContent = '✓ Scanned: ' + code.data.split('|')[0];
+        handleScan(id, code.data);
+      }
+    } else if (_adminFrameCount % 60 === 0) {
+      status.textContent = 'Scanning... hold QR code steady';
     }
+  } catch(err) {
+    status.textContent = 'Scan error: ' + err.message;
   }
-  cams[id].frame = requestAnimationFrame(() => scanLoop(id));
+
+  cams[id].frame = requestAnimationFrame(() => adminScanLoop(id));
 }
 function handleScan(id, data) {
   const assetId = data.split('|')[0].trim();
