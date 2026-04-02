@@ -232,9 +232,15 @@ async function enterProject() {
   currentProject = (allData?.projects||[]).find(p => p.projectId === projId);
   if (!currentProject) { showToast('Project not found', 'error'); return; }
 
+  // Try to restore saved state for this project
+  const savedState = loadDailyState(currentProject.projectId);
   projectAssets = (allData?.assets||[])
     .filter(a => (currentProject.assetIds||[]).includes(a.assetId))
-    .map(a => ({ ...a, fieldStatus: 'In' }));
+    .map(a => {
+      const saved = savedState?.assets?.find(s => s.assetId === a.assetId);
+      return { ...a, fieldStatus: saved?.fieldStatus || 'In', assignedTo: saved?.assignedTo || '' };
+    });
+  if (savedState?.moves) dailyMoves = savedState.moves;
 
   document.getElementById('ref-proj-name').textContent = currentProject.name;
   document.getElementById('ref-proj-meta').textContent = `${projectAssets.length} assets · ${currentProject.client||''} · Field: ${name}`;
@@ -262,7 +268,7 @@ function renderRefList() {
       <div class="asset-info">
         <div class="asset-id">${a.assetId}</div>
         <div class="asset-name">${[a.assetType,a.make,a.model].filter(Boolean).join(' ')}</div>
-        <div class="asset-meta">${a.categoryCode}${a.vin?' · '+a.vin:''}</div>
+        <div class="asset-meta">${a.categoryCode}${a.vin?' · '+a.vin:''}${a.fieldStatus==='Out'&&a.assignedTo?' · <span style="color:var(--red)">'+a.assignedTo+'</span>':''}</div>
       </div>
       <span class="asset-status ${a.fieldStatus==='Out'?'s-out':'s-in'}">${a.fieldStatus==='Out'?'Out':'In'}</span>
     </div>`).join('');
@@ -367,16 +373,67 @@ function handleScan(data) {
   }
   logMove(asset);
 }
-function logMove(asset) {
+function logMove(asset, assignedTo) {
   const now = new Date();
   const time = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   const action = asset.fieldStatus === 'In' ? 'OUT' : 'IN';
+
+  // If checking OUT and no assignee provided, show modal to enter name
+  if (action === 'OUT' && !assignedTo) {
+    showAssignModal(asset);
+    return;
+  }
+
   asset.fieldStatus = action === 'OUT' ? 'Out' : 'In';
-  dailyMoves.push({ assetId:asset.assetId, assetName:[asset.assetType,asset.make,asset.model].filter(Boolean).join(' '), action, time, user:fieldUser, ts:now.toISOString() });
+  if (action === 'OUT') asset.assignedTo = assignedTo || fieldUser;
+  if (action === 'IN') asset.assignedTo = '';
+
+  const move = {
+    assetId: asset.assetId,
+    assetName: [asset.assetType,asset.make,asset.model].filter(Boolean).join(' '),
+    action,
+    time,
+    assignedTo: action === 'OUT' ? (assignedTo || fieldUser) : asset.assignedTo || '',
+    user: fieldUser,
+    ts: now.toISOString()
+  };
+  dailyMoves.push(move);
+  saveDailyState();
   document.getElementById('scan-status').textContent = `✓ ${asset.assetId} — ${action} at ${time}`;
-  showToast(`${asset.assetId} ${action} at ${time}`);
+  showToast(`${asset.assetId} ${action}${action==='OUT'?' → '+(assignedTo||fieldUser):''}  at ${time}`);
   renderMoves();
   renderRefList();
+}
+
+function showAssignModal(asset) {
+  // Remove existing modal if any
+  const existing = document.getElementById('assign-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'assign-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(13,27,42,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.4);">
+      <div style="font-family:'Montserrat',sans-serif;font-size:16px;font-weight:800;margin-bottom:4px;">Assign Asset</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${asset.assetId} — ${[asset.assetType,asset.make,asset.model].filter(Boolean).join(' ')}</div>
+      <label>Assigned To</label>
+      <input type="text" id="assign-name" placeholder="Enter name" style="margin-bottom:14px;" value="${fieldUser}">
+      <div style="display:flex;gap:10px;">
+        <button onclick="confirmAssign('${asset.assetId}')" style="flex:1;padding:12px;border:none;border-radius:6px;background:var(--green);color:#0D1B2A;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Check Out</button>
+        <button onclick="document.getElementById('assign-modal').remove()" style="padding:12px 16px;border:1.5px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById('assign-name')?.focus(), 100);
+}
+
+function confirmAssign(assetId) {
+  const name = document.getElementById('assign-name')?.value.trim();
+  if (!name) { showToast('Enter a name', 'warn'); return; }
+  document.getElementById('assign-modal')?.remove();
+  const asset = projectAssets.find(a => a.assetId === assetId);
+  if (asset) logMove(asset, name);
 }
 function renderMoves() {
   const list = document.getElementById('move-list');
@@ -387,7 +444,7 @@ function renderMoves() {
       <div class="asset-info">
         <div class="asset-id">${m.assetId}</div>
         <div class="asset-name">${m.assetName}</div>
-        <div class="asset-meta">${m.user} · ${m.time}</div>
+        <div class="asset-meta">${m.action==='OUT'?'→ '+m.assignedTo:m.user} · ${m.time}</div>
       </div>
       <span class="asset-status ${m.action==='OUT'?'s-out':'s-in'}">${m.action}</span>
     </div>`).join('');
@@ -417,7 +474,7 @@ function runEOD() {
 }
 function forceCheckIn(assetId) {
   const asset = projectAssets.find(a => a.assetId === assetId);
-  if (asset) logMove(asset);
+  if (asset) logMove(asset, '');
   runEOD();
 }
 
@@ -431,6 +488,35 @@ function exportDaily() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`Field_Log_${currentProject?.name||'Project'}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
   showToast('Daily log exported');
+}
+
+
+function saveDailyState() {
+  if (!currentProject) return;
+  const today = new Date().toISOString().slice(0,10);
+  const state = {
+    date: today,
+    projectId: currentProject.projectId,
+    fieldUser,
+    assets: projectAssets.map(a => ({ assetId: a.assetId, fieldStatus: a.fieldStatus, assignedTo: a.assignedTo||'' })),
+    moves: dailyMoves
+  };
+  try { localStorage.setItem('vgc-daily-' + currentProject.projectId, JSON.stringify(state)); } catch(e) {}
+}
+
+function loadDailyState(projectId) {
+  try {
+    const raw = localStorage.getItem('vgc-daily-' + projectId);
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    // Only restore if it's from today
+    const today = new Date().toISOString().slice(0,10);
+    if (state.date !== today) {
+      localStorage.removeItem('vgc-daily-' + projectId);
+      return null;
+    }
+    return state;
+  } catch(e) { return null; }
 }
 
 function showToast(msg, type='success') {
