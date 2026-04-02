@@ -373,7 +373,7 @@ function buildCatFilters() {
   });
 }
 
-function filterCat(code, btn) {
+function filterInvCat(code, btn) {
   invCatFilter = code;
   document.querySelectorAll('#cat-filters .filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
