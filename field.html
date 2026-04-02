@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="VGC Field">
 <link rel="manifest" href="manifest.json">
 <title>VGC Asset Tracker — Field</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@400;500;600&display=swap');
 :root{
@@ -306,26 +306,55 @@ function stopScanner() {
   document.getElementById('scan-status').textContent = 'Camera stopped';
   document.getElementById('scan-vid').srcObject = null;
 }
+let frameCount = 0;
 function scanLoop() {
   const v = document.getElementById('scan-vid');
-  if (!scanner.active || v.readyState !== v.HAVE_ENOUGH_DATA) {
+  const status = document.getElementById('scan-status');
+
+  if (!scanner.active) return;
+
+  // Wait for video to be ready
+  if (v.readyState < 2) {
     scanner.frame = requestAnimationFrame(scanLoop); return;
   }
-  // Scale down for faster processing
-  const sw = Math.min(v.videoWidth, 640);
-  const sh = Math.min(v.videoHeight, 480);
+
+  // Check jsQR loaded
+  if (typeof jsQR === 'undefined') {
+    status.textContent = 'ERROR: jsQR library not loaded — check internet connection';
+    return;
+  }
+
+  frameCount++;
+  // Update status every 30 frames so user knows it's working
+  if (frameCount % 30 === 0) {
+    status.textContent = 'Scanning... (frame ' + frameCount + ')';
+  }
+
+  const sw = Math.min(v.videoWidth || 640, 640);
+  const sh = Math.min(v.videoHeight || 480, 480);
+  if (sw === 0 || sh === 0) {
+    scanner.frame = requestAnimationFrame(scanLoop); return;
+  }
+
   scanCanvas.width = sw; scanCanvas.height = sh;
   scanCtx.drawImage(v, 0, 0, sw, sh);
-  const img = scanCtx.getImageData(0, 0, sw, sh);
-  let code = jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-  if (!code) code = jsQR(img.data,img.width,img.height,{inversionAttempts:'onlyInvert'});
-  if (code?.data) {
-    const now = Date.now();
-    if (code.data !== lastScanned || now - lastScannedTime > 3000) {
-      lastScanned = code.data; lastScannedTime = now;
-      handleScan(code.data);
+
+  try {
+    const img = scanCtx.getImageData(0, 0, sw, sh);
+    let code = jsQR(img.data, img.width, img.height, {inversionAttempts: 'attemptBoth'});
+    if (code && code.data) {
+      const now = Date.now();
+      if (code.data !== lastScanned || now - lastScannedTime > 3000) {
+        lastScanned = code.data;
+        lastScannedTime = now;
+        status.textContent = '✓ QR detected: ' + code.data.substring(0, 30);
+        handleScan(code.data);
+      }
     }
+  } catch(err) {
+    status.textContent = 'Scan error: ' + err.message;
   }
+
   scanner.frame = requestAnimationFrame(scanLoop);
 }
 function handleScan(data) {
