@@ -274,20 +274,28 @@ async function toggleScanner() {
 }
 async function startScanner() {
   const status = document.getElementById('scan-status');
+  const btn = document.getElementById('scan-btn');
   status.textContent = 'Starting camera...';
   try {
-    scanner.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }));
+    // Try environment camera first, fall back to any camera
+    try {
+      scanner.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+    } catch(e1) {
+      scanner.stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
     const v = document.getElementById('scan-vid');
-    v.srcObject = scanner.stream; await v.play();
+    v.srcObject = scanner.stream;
+    await v.play();
     scanner.active = true;
-    document.getElementById('scan-btn').textContent = 'Stop Camera';
-    status.textContent = 'Point camera at asset QR code...';
+    btn.textContent = 'Stop Camera';
+    status.textContent = 'Scanning — hold QR code steady in the frame';
     scanLoop();
   } catch(e) {
-    status.textContent = 'Camera unavailable — use manual log below';
-    showToast('Camera unavailable', 'error');
+    scanner.active = false;
+    btn.textContent = 'Start Camera';
+    status.textContent = 'Camera error: ' + (e.message || 'Permission denied');
   }
 }
 function stopScanner() {
@@ -303,9 +311,12 @@ function scanLoop() {
   if (!scanner.active || v.readyState !== v.HAVE_ENOUGH_DATA) {
     scanner.frame = requestAnimationFrame(scanLoop); return;
   }
-  scanCanvas.width = v.videoWidth; scanCanvas.height = v.videoHeight;
-  scanCtx.drawImage(v, 0, 0);
-  const img = scanCtx.getImageData(0,0,scanCanvas.width,scanCanvas.height);
+  // Scale down for faster processing
+  const sw = Math.min(v.videoWidth, 640);
+  const sh = Math.min(v.videoHeight, 480);
+  scanCanvas.width = sw; scanCanvas.height = sh;
+  scanCtx.drawImage(v, 0, 0, sw, sh);
+  const img = scanCtx.getImageData(0, 0, sw, sh);
   let code = jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
   if (!code) code = jsQR(img.data,img.width,img.height,{inversionAttempts:'onlyInvert'});
   if (code?.data) {

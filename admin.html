@@ -671,14 +671,19 @@ async function startCam(id) {
   const btn = document.getElementById(id + '-cam-btn');
   try {
     status.textContent = 'Starting camera...';
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }));
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+    } catch(e1) {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
     vid.srcObject = stream;
     await vid.play();
     cams[id] = { active: true, stream };
     btn.textContent = 'Stop Camera';
-    status.textContent = 'Point camera at asset QR code...';
+    status.textContent = 'Scanning — hold QR code steady in the frame';
     scanLoop(id);
   } catch(e) {
     status.textContent = 'Camera unavailable — select assets manually below';
@@ -701,9 +706,11 @@ function scanLoop(id) {
   if (!cams[id]?.active || vid.readyState !== vid.HAVE_ENOUGH_DATA) {
     cams[id].frame = requestAnimationFrame(() => scanLoop(id)); return;
   }
-  scanCanvas.width = vid.videoWidth; scanCanvas.height = vid.videoHeight;
-  scanCtx.drawImage(vid, 0, 0);
-  const img = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+  const sw = Math.min(vid.videoWidth, 640);
+  const sh = Math.min(vid.videoHeight, 480);
+  scanCanvas.width = sw; scanCanvas.height = sh;
+  scanCtx.drawImage(vid, 0, 0, sw, sh);
+  const img = scanCtx.getImageData(0, 0, sw, sh);
   let code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
   if (!code) code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'onlyInvert' });
   if (code?.data) {
