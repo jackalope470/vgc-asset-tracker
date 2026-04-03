@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="VGC Admin">
 <link rel="manifest" href="manifest.json">
 <title>VGC Asset Tracker — Admin</title>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@400;500;600&display=swap');
@@ -114,41 +114,34 @@ textarea{resize:vertical;min-height:70px;font-size:14px;}
 
 /* ── PRINT LABELS ── */
 @media print {
-  @page { margin: 0; size: letter; }
-  body *{visibility:hidden;}
-  .label-print-area, .label-print-area *{visibility:visible;}
-  .label-print-area{
-    position:fixed;top:0;left:0;
-    width:215.9mm;
-    margin:0;padding:0;
+  @page { size: letter; margin: 12.7mm 4.76mm; }
+  html, body { margin: 0; padding: 0; }
+  body * { visibility: hidden; }
+  .label-print-area, .label-print-area * { visibility: visible; }
+  .label-print-area { position: static; }
+  .no-print { display: none !important; }
+  .label-sheet {
+    display: grid;
+    grid-template-columns: repeat(3, 63.5mm);
+    gap: 0;
+    padding: 0;
+    width: auto;
   }
-  .no-print{display:none !important;}
-
-  .label-sheet{
-    display:grid;
-    grid-template-columns:repeat(3,63.5mm);
-    gap:0;
-    padding:12.7mm 4.76mm;
-    width:215.9mm;
-    margin:0;
+  .label {
+    width: 63.5mm; height: 25.4mm;
+    display: flex; align-items: center;
+    padding: 1.5mm 2mm; gap: 2mm;
+    border: 0.2mm solid #ccc;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
-  .label{
-    width:63.5mm;height:25.4mm;
-    display:flex;align-items:center;
-    padding:1.5mm 2mm;
-    gap:2mm;
-    border:0.2mm solid #ccc;
-    overflow:hidden;
-    break-inside:avoid;
-    page-break-inside:avoid;
-  }
-  .label-qr{width:22mm;height:22mm;flex-shrink:0;}
-  .label-qr canvas,.label-qr img{width:22mm !important;height:22mm !important;}
-  .label-text{flex:1;overflow:hidden;}
-  .label-id{font-family:'Montserrat',sans-serif;font-size:7pt;font-weight:800;color:#1A5DB5;}
-  .label-name{font-size:6.5pt;font-weight:600;color:#0D1B2A;line-height:1.2;margin-top:0.5mm;}
-  .label-meta{font-size:5.5pt;color:#5A7A96;margin-top:0.5mm;}
-  .label-brand{font-size:5pt;color:#B8CDE0;margin-top:1mm;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.5px;}
+  .label-qr { width: 22mm; height: 22mm; flex-shrink: 0; }
+  .label-qr canvas, .label-qr img { width: 22mm !important; height: 22mm !important; }
+  .label-text { flex: 1; overflow: hidden; }
+  .label-id { font-family: 'Montserrat',sans-serif; font-size: 7pt; font-weight: 800; color: #1A5DB5; }
+  .label-name { font-size: 6.5pt; font-weight: 600; color: #0D1B2A; line-height: 1.2; margin-top: 0.5mm; }
+  .label-brand { font-size: 5pt; color: #B8CDE0; margin-top: 1mm; font-family: 'Montserrat',sans-serif; font-weight: 700; letter-spacing: .5px; }
 }
 @media screen{.label-print-area{display:none;}}
 
@@ -329,7 +322,6 @@ let allAssets = [], filteredInv = [], selectedForDispatch = new Set();
 let selectedForLabels = new Set(), labelCatFilter = 'ALL', dispatchCatFilter = 'ALL';
 let invCatFilter = 'ALL';
 let cams = {};
-let scanCanvases = {};
 
 // ─── LOAD DATA ────────────────────────────────────────────────
 async function loadData() {
@@ -678,11 +670,11 @@ function printLabels() {
   area.innerHTML = `<div class="label-sheet" id="label-sheet"></div>`;
   const sheet = document.getElementById('label-sheet');
 
-  let rendered = 0;
+  // Render all labels first, then print once after all QR codes are generated
   assets.forEach((a, idx) => {
     const label = document.createElement('div');
     label.className = 'label';
-    const qrData = `${a.assetId}|${a.assetType||''}|${a.make||''}|${a.model||''}`;
+    const qrData = a.assetId;
     const labelDesc = [a.assetType, a.make !== a.assetType ? a.make : ''].filter(Boolean).join(' ').substring(0,28);
     label.innerHTML = `
       <div class="label-qr" id="lqr-${idx}"></div>
@@ -694,13 +686,16 @@ function printLabels() {
     sheet.appendChild(label);
 
     new QRCode(document.getElementById(`lqr-${idx}`), {
-      text: qrData, width: 76, height: 76,
-      colorDark: '#000', colorLight: '#fff',
-      correctLevel: QRCode.CorrectLevel.M
+      text: qrData,
+      width: 80, height: 80,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.L
     });
-    rendered++;
-    if (rendered === assets.length) setTimeout(() => window.print(), 600);
   });
+
+  // Single print call after ALL labels are in the DOM and QR codes have rendered
+  setTimeout(() => window.print(), 800);
 }
 
 // ─── SCANNER ──────────────────────────────────────────────────
