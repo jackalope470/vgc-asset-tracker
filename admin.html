@@ -114,9 +114,14 @@ textarea{resize:vertical;min-height:70px;font-size:14px;}
 
 /* ── PRINT LABELS ── */
 @media print {
+  @page { margin: 0; size: letter; }
   body *{visibility:hidden;}
   .label-print-area, .label-print-area *{visibility:visible;}
-  .label-print-area{position:absolute;top:0;left:0;width:100%;}
+  .label-print-area{
+    position:fixed;top:0;left:0;
+    width:215.9mm;
+    margin:0;padding:0;
+  }
   .no-print{display:none !important;}
 
   .label-sheet{
@@ -125,6 +130,7 @@ textarea{resize:vertical;min-height:70px;font-size:14px;}
     gap:0;
     padding:12.7mm 4.76mm;
     width:215.9mm;
+    margin:0;
   }
   .label{
     width:63.5mm;height:25.4mm;
@@ -133,11 +139,11 @@ textarea{resize:vertical;min-height:70px;font-size:14px;}
     gap:2mm;
     border:0.2mm solid #ccc;
     overflow:hidden;
-    page-break-inside:avoid;
     break-inside:avoid;
+    page-break-inside:avoid;
   }
-  .label-qr{width:20mm;height:20mm;flex-shrink:0;}
-  .label-qr canvas,.label-qr img{width:20mm !important;height:20mm !important;}
+  .label-qr{width:22mm;height:22mm;flex-shrink:0;}
+  .label-qr canvas,.label-qr img{width:22mm !important;height:22mm !important;}
   .label-text{flex:1;overflow:hidden;}
   .label-id{font-family:'Montserrat',sans-serif;font-size:7pt;font-weight:800;color:#1A5DB5;}
   .label-name{font-size:6.5pt;font-weight:600;color:#0D1B2A;line-height:1.2;margin-top:0.5mm;}
@@ -677,13 +683,12 @@ function printLabels() {
     const label = document.createElement('div');
     label.className = 'label';
     const qrData = `${a.assetId}|${a.assetType||''}|${a.make||''}|${a.model||''}`;
+    const labelDesc = [a.assetType, a.make !== a.assetType ? a.make : ''].filter(Boolean).join(' ').substring(0,28);
     label.innerHTML = `
       <div class="label-qr" id="lqr-${idx}"></div>
       <div class="label-text">
         <div class="label-id">${a.assetId}</div>
-        <div class="label-name">${assetLabel(a)}</div>
-        <div class="label-meta">${[a.make,a.model].filter(Boolean).join(' ')}</div>
-        ${a.vin ? `<div class="label-meta">${a.vin}</div>` : ''}
+        <div class="label-name">${labelDesc}</div>
         <div class="label-brand">VANTAGEGEO</div>
       </div>`;
     sheet.appendChild(label);
