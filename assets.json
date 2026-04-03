@@ -1,6 +1,6 @@
 {
-  "lastUpdated": "2026-04-02",
-  "updatedBy": "Chris H",
+  "lastUpdated": "2026-04-03",
+  "updatedBy": "admin",
   "projects": [
     {
       "projectId": "PROJ-1775158543590",
@@ -10,10 +10,11 @@
       "location": "Office",
       "coordinator": "Chris H",
       "dispatchDate": "2026-04-02",
-      "status": "Active",
+      "status": "Closed",
       "assetIds": [
         "VGC-TRK-002"
-      ]
+      ],
+      "closeDate": "2026-04-03"
     }
   ],
   "assets": [
@@ -88,9 +89,9 @@
       "vin": "2GC4YLEY3R1114814",
       "unitNumber": "",
       "location": "1021 Blackhaw St, Houston, Tx 77079",
-      "status": "On Project",
-      "currentProject": "Test",
-      "assignedTo": "Chris H",
+      "status": "Available",
+      "currentProject": "",
+      "assignedTo": "",
       "lastCheckout": "2026-04-02T19:35:43.590Z"
     },
     {
