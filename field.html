@@ -286,7 +286,13 @@ async function startScanner() {
     // Try environment camera first, fall back to any camera
     try {
       scanner.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          focusMode: { ideal: 'continuous' },
+          advanced: [{ focusMode: 'continuous' }]
+        }
       });
     } catch(e1) {
       scanner.stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -294,6 +300,10 @@ async function startScanner() {
     const v = document.getElementById('scan-vid');
     v.srcObject = scanner.stream;
     await v.play();
+    try {
+      const track = scanner.stream.getVideoTracks()[0];
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    } catch(e) {}
     scanner.active = true;
     btn.textContent = 'Stop Camera';
     status.textContent = 'Scanning — hold QR code steady in the frame';
