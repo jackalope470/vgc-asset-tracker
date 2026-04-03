@@ -291,6 +291,14 @@ textarea{resize:vertical;min-height:70px;font-size:14px;}
   </div>
 
   <div class="card">
+    <div class="card-title">📥 Import Updated Inventory</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Added new assets to your Excel file? Export it as CSV and import here to merge new items into the app without losing existing project assignments.</p>
+    <label>Upload Inventory CSV</label>
+    <input type="file" id="csv-import" accept=".csv" onchange="importInventoryCSV(event)" style="margin-bottom:12px;">
+    <div id="import-status" style="font-size:12px;color:var(--muted);min-height:16px;"></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">📋 How to Update GitHub</div>
     <p style="font-size:13px;color:var(--muted);line-height:1.7;">
       1. Download assets.json above<br>
@@ -323,6 +331,7 @@ async function loadData() {
     const res = await fetch(GITHUB_ASSETS_URL + '?t=' + Date.now());
     const data = await res.json();
     allAssets = data.assets || [];
+    window._loadedProjects = data.projects || [];
     filteredInv = [...allAssets];
     buildCatFilters();
     updateStats();
@@ -803,7 +812,7 @@ function buildCurrentJSON() {
   return {
     lastUpdated: new Date().toISOString().slice(0,10),
     updatedBy: document.getElementById('proj-coordinator')?.value || 'admin',
-    projects: [],
+    projects: window._loadedProjects || [],
     assets: allAssets
   };
 }
@@ -837,6 +846,93 @@ function downloadJSON(data, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
 }
+
+function importInventoryCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('import-status');
+  status.textContent = 'Reading CSV...';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { status.textContent = 'Error: CSV appears empty'; return; }
+      const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim().toLowerCase());
+
+      // Map CSV columns to asset fields
+      const colMap = {
+        assetId:      headers.indexOf('asset_id'),
+        categoryCode: headers.indexOf('category') !== -1 ? headers.indexOf('category') : headers.indexOf('categorycode'),
+        assetType:    headers.indexOf('asset_type'),
+        make:         headers.indexOf('make'),
+        model:        headers.indexOf('model'),
+        vin:          headers.indexOf('vin_serial') !== -1 ? headers.indexOf('vin_serial') : headers.indexOf('vin'),
+        unitNumber:   headers.indexOf('unit_number'),
+        location:     headers.indexOf('location'),
+        status:       headers.indexOf('status'),
+      };
+
+      let added = 0, updated = 0, skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        // Parse CSV line handling quoted fields
+        const cols = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || lines[i].split(',');
+        const clean = cols.map(c => c.replace(/^"|"$/g,'').trim());
+
+        const assetId = colMap.assetId >= 0 ? clean[colMap.assetId] : '';
+        if (!assetId || !assetId.startsWith('VGC-')) { skipped++; continue; }
+
+        const existing = allAssets.find(a => a.assetId === assetId);
+        const newAsset = {
+          assetId,
+          categoryCode: colMap.categoryCode >= 0 ? clean[colMap.categoryCode] : '',
+          category: colMap.categoryCode >= 0 ? clean[colMap.categoryCode] : '',
+          assetType: colMap.assetType >= 0 ? clean[colMap.assetType] : '',
+          make: colMap.make >= 0 ? clean[colMap.make] : '',
+          model: colMap.model >= 0 ? clean[colMap.model] : '',
+          vin: colMap.vin >= 0 ? clean[colMap.vin] : '',
+          unitNumber: colMap.unitNumber >= 0 ? clean[colMap.unitNumber] : '',
+          location: colMap.location >= 0 ? clean[colMap.location] : '',
+          status: (existing?.status && existing.status !== 'Available') ? existing.status : (colMap.status >= 0 ? clean[colMap.status] : 'Available'),
+          currentProject: existing?.currentProject || '',
+          assignedTo: existing?.assignedTo || '',
+        };
+        // Extract no from assetId e.g. VGC-TRK-002 -> 2
+        const parts = assetId.split('-');
+        newAsset.no = parseInt(parts[parts.length-1]) || 0;
+
+        if (existing) {
+          // Update non-status fields but preserve project assignment
+          Object.assign(existing, { ...newAsset, status: existing.status, currentProject: existing.currentProject, assignedTo: existing.assignedTo });
+          updated++;
+        } else {
+          allAssets.push(newAsset);
+          added++;
+        }
+      }
+
+      updateStats();
+      renderInventory();
+      renderDispatchPicker();
+      renderLabelPicker();
+      buildCatFilters();
+      status.textContent = `✓ Import complete — ${added} new assets added, ${updated} updated, ${skipped} skipped`;
+      showToast(`Imported: ${added} new, ${updated} updated`);
+
+      // Prompt to download updated JSON
+      setTimeout(() => {
+        if (confirm(`Import complete.\n\n${added} new assets added, ${updated} updated.\n\nDownload updated assets.json to upload to GitHub?`)) {
+          exportJSON();
+        }
+      }, 500);
+    } catch(err) {
+      status.textContent = 'Import error: ' + err.message;
+      showToast('Import failed: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
