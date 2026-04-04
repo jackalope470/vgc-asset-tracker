@@ -675,13 +675,13 @@ function printLabels() {
     const label = document.createElement('div');
     label.className = 'label';
     const qrData = a.assetId;
-    const labelDesc = [a.assetType, a.make !== a.assetType ? a.make : ''].filter(Boolean).join(' ').substring(0,28);
+    const labelLine1 = a.assetType || '';
+    const labelLine2 = a.unitNumber ? 'Unit ' + a.unitNumber : '';
     label.innerHTML = `
       <div class="label-qr" id="lqr-${idx}"></div>
       <div class="label-text">
-        <div class="label-id">${a.assetId}</div>
-        <div class="label-name">${labelDesc}</div>
-        <div class="label-brand">VANTAGEGEO</div>
+        <div class="label-name" style="font-size:7pt;font-weight:800;color:#0D1B2A;">${labelLine1}</div>
+        ${labelLine2 ? `<div class="label-name" style="font-size:7pt;font-weight:700;color:#1A5DB5;">${labelLine2}</div>` : ''}
       </div>`;
     sheet.appendChild(label);
 
